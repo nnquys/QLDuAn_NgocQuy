@@ -1,0 +1,274 @@
+﻿@page "/phancong"
+@using QLDuAn_NgocQuy.Data
+@using QLDuAn_NgocQuy.Models
+@inject PhanCongCVService PhanCongCVService
+<div class="  bg-blue text-black p-5">
+    <h3 class="col text-center">QUẢN LÝ PHÂN CÔNG CÔNG VIỆC</h3>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (phanCongList == null || phanCongList.Count == 0)
+{
+    <p>Không có dữ liệu.</p>
+}
+else
+{
+    <div class="row">            
+            <div class="col-md-4">
+                <div class="input-group">
+                    <input id="txtSearch" class="form-control" @bind-value="searchTerm" />
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" @onclick="SearchTasks">Tìm kiếm</button>
+                    </div>
+                </div>
+            </div>
+        </div>       
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Mã phân công</th>
+                <th>Mã dự án</th>
+                <th>Mã thành viên</th>
+                <th>Công việc</th>
+                <th>Ngày giao</th>
+                <th>Hạn cuối</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var phanCong in displayList)
+            {
+                <tr>
+                    <td>@phanCong.MaPhanCong</td>
+                    <td>@phanCong.MaDuAn</td>
+                    <td>@phanCong.MaThanhVien</td>
+                    <td>@phanCong.CongViec</td>
+                    <td>@phanCong.NgayGiao.ToShortDateString()</td>
+                    <td>@phanCong.HanCuoi.ToShortDateString()</td>
+                    <td>@phanCong.TrangThai</td>
+                    <td>
+                        <button class="btn btn-primary" @onclick="() => EditPhanCong(phanCong)">Edit</button>
+                        <button class="btn btn-danger" @onclick="() => DeletePhanCong(phanCong.MaPhanCong)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+
+
+@if (isEditing || isNew)
+{
+    <EditForm Model="selectedPhanCong" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="MaPhanCong">Mã Phân Công:</label>
+            <InputText id="MaPhanCong" class="form-control" @bind-Value="selectedPhanCong.MaPhanCong" disabled="@(isEditing)" />
+        </div>
+
+        <div class="form-group">
+            <label for="MaDuAn">Mã Dự Án:</label>
+            <select id="MaDuAn" class="form-control" @bind="selectedPhanCong.MaDuAn">
+                @foreach (var duAn in danhSachDuAn)
+                {
+                    <option value="@duAn.MaDuAn">@duAn.MaDuAn - @duAn.TenDuAn</option>
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="MaThanhVien">Mã Thành Viên:</label>
+            <select id="MaThanhVien" class="form-control" @bind="selectedPhanCong.MaThanhVien">
+                @foreach (var thanhVien in danhSachThanhVien)
+                {
+                    <option value="@thanhVien.MaThanhVien">@thanhVien.MaThanhVien - @thanhVien.TenThanhVien</option>
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="CongViec">Công Việc:</label>
+            <InputText id="CongViec" class="form-control" @bind-Value="selectedPhanCong.CongViec" />
+        </div>
+        <div class="form-group">
+            <label for="NgayGiao">Ngày Giao:</label>
+            <InputDate id="NgayGiao" class="form-control" @bind-Value="selectedPhanCong.NgayGiao" />
+        </div>
+        <div class="form-group">
+            <label for="HanCuoi">Hạn Cuối:</label>
+            <InputDate id="HanCuoi" class="form-control" @bind-Value="selectedPhanCong.HanCuoi" />
+        </div>
+        <div class="form-group">
+            <label for="TrangThai">Trạng Thái:</label>
+            <InputText id="TrangThai" class="form-control" @bind-Value="selectedPhanCong.TrangThai" />
+        </div>
+        <button type="submit" class="btn btn-success">Lưu</button>
+        <button type="button" class="btn btn-secondary" @onclick="CancelEdit">Hủy</button>
+    </EditForm>
+}
+    <div class="col-md-4">
+        <button class="btn btn-primary btn-block" @onclick="GiaoViecClick">Giao Việc</button>
+    </div>
+</div>
+@code {
+    private List<PhanCongCV> phanCongList;
+    private List<PhanCongCV> displayList; // List used for display after filtering
+    private List<ThanhVien> danhSachThanhVien;
+    private List<DuAn> danhSachDuAn;
+    private bool isLoading = true;
+    private bool isEditing = false;
+    private bool isNew = false;
+    private PhanCongCV selectedPhanCong = new PhanCongCV();
+    private string searchTerm = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            phanCongList = await PhanCongCVService.GetAllAsync();
+            displayList = new List<PhanCongCV>(phanCongList); // Initialize display list
+            danhSachThanhVien = await PhanCongCVService.GetDanhSachThanhVienAsync();
+            danhSachDuAn = await PhanCongCVService.GetDanhSachDuAnAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error fetching data: {ex.Message}");
+            phanCongList = new List<PhanCongCV>(); // Initialize empty list on error
+            displayList = new List<PhanCongCV>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SearchTasks()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                displayList = new List<PhanCongCV>(phanCongList); // Reset to full list
+            }
+            else
+            {
+                displayList = phanCongList.Where(p =>
+                    p.MaPhanCong.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    p.MaDuAn.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    p.MaThanhVien.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    p.CongViec.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    p.TrangThai.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                ).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error searching tasks: {ex.Message}");
+        }
+    }
+
+    private async Task GiaoViecClick()
+    {
+        try
+        {
+            var maxMaPhanCong = await PhanCongCVService.GetMaxMaPhanCong();
+            if (int.TryParse(maxMaPhanCong, out int maxId))
+            {
+                var newMaPhanCong = $"PC{maxId + 1}";
+                selectedPhanCong = new PhanCongCV
+                    {
+                        MaPhanCong = newMaPhanCong,
+                        MaDuAn = danhSachDuAn.FirstOrDefault()?.MaDuAn,
+                        MaThanhVien = danhSachThanhVien.FirstOrDefault()?.MaThanhVien,
+                        NgayGiao = DateTime.Now.Date,
+                        HanCuoi = DateTime.Now.Date.AddDays(7),
+                        TrangThai = "Đang hoạt động"
+                    };
+                isNew = true;
+                isEditing = true;
+                StateHasChanged(); // Ensure UI is updated
+            }
+            else
+            {
+                Console.Error.WriteLine("Error generating new MaPhanCong.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error generating new MaPhanCong: {ex.Message}");
+        }
+    }
+
+    private void EditPhanCong(PhanCongCV phanCong)
+    {
+        selectedPhanCong = phanCong;
+        isEditing = true;
+        isNew = false;
+        StateHasChanged(); // Ensure UI is updated
+    }
+
+    private void CancelEdit()
+    {
+        selectedPhanCong = new PhanCongCV();
+        isEditing = false;
+        isNew = false;
+        StateHasChanged(); // Ensure UI is updated
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            if (isNew)
+            {
+                await PhanCongCVService.InsertAsync(selectedPhanCong);
+            }
+            else
+            {
+                await PhanCongCVService.UpdateAsync(selectedPhanCong);
+            }
+            await LoadData(); // Reload data after saving
+            isEditing = false;
+            isNew = false;
+            StateHasChanged(); // Ensure UI is updated
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving data: {ex.Message}");
+        }
+    }
+
+    private async Task DeletePhanCong(string maPhanCong)
+    {
+        try
+        {
+            await PhanCongCVService.DeleteAsync(maPhanCong);
+            await LoadData(); // Reload data after deleting
+            StateHasChanged(); // Ensure UI is updated
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting data: {ex.Message}");
+        }
+    }
+}
+<style>
+    .bg-blue {
+        background-color: #CCCCFF;
+        color: white;
+    }
+
+    .min-vh-100 {
+        min-height: 100vh;
+    }
+</style>

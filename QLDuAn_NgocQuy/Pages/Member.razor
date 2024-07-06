@@ -1,0 +1,252 @@
+﻿@page "/thanhvien"
+@inject NavigationManager Navigation
+@using QLDuAn_NgocQuy.Data
+@using QLDuAn_NgocQuy.Models
+@inject ThanhVienService ThanhVienService
+@implements IDisposable
+<div class="  bg-blue text-black p-5">
+    <h3 class="col text-center">DANH SÁCH THÀNH VIÊN</h3>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (thanhVienList == null || thanhVienList.Count == 0)
+{
+    <p>Không có dữ liệu.</p>
+}
+else
+{
+        <div class="row">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <input id="txtSearch" class="form-control" @bind-value="searchTerm" />
+                    <div class="input-group-append">
+                        <button class="btn btn-primary" @onclick="SearchMembers">Tìm kiếm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+  @*   <div class="form-group">
+        <label for="txtSearch">Tìm kiếm thành viên</label>
+        <input id="txtSearch" class="form-control" @bind-value="searchTerm" />
+        <button class="btn btn-primary" @onclick="SearchMembers">Tìm kiếm</button>
+    </div> *@
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Mã thành viên</th>
+                <th>Tên thành viên</th>
+                <th>Chức vụ</th>
+                <th>Email</th>
+                <th>Số điện thoại</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var thanhVien in displayList)
+            {
+                <tr>
+                    <td>@thanhVien.MaThanhVien</td>
+                    <td>@thanhVien.TenThanhVien</td>
+                    <td>@thanhVien.ChucVu</td>
+                    <td>@thanhVien.Email</td>
+                    <td>@thanhVien.SDT</td>
+                    <td>
+                        <button class="btn btn-primary" @onclick="() => EditMember(thanhVien)">Edit</button>
+                        <button class="btn btn-danger" @onclick="() => DeleteMember(thanhVien.MaThanhVien)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<button class="btn btn-primary" @onclick="ShowForm">Thêm Thành viên</button>
+
+@if (showForm)
+{
+    <EditForm Model="@editThanhVien" OnValidSubmit="@HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="MaThanhVien">Mã Thành viên</label>
+            <InputText id="MaThanhVien" class="form-control" @bind-Value="editThanhVien.MaThanhVien" />
+        </div>
+        <div class="form-group">
+            <label for="TenThanhVien">Tên Thành viên</label>
+            <InputText id="TenThanhVien" class="form-control" @bind-Value="editThanhVien.TenThanhVien" />
+        </div>
+        <div class="form-group">
+            <label for="ChucVu">Chức vụ</label>
+            <InputText id="ChucVu" class="form-control" @bind-Value="editThanhVien.ChucVu" />
+        </div>
+        <div class="form-group">
+            <label for="Email">Email</label>
+            <InputText id="Email" class="form-control" @bind-Value="editThanhVien.Email" />
+        </div>
+        <div class="form-group">
+            <label for="SDT">Số điện thoại</label>
+            <InputText id="SDT" class="form-control" @bind-Value="editThanhVien.SDT" />
+        </div>
+
+        <button type="submit" class="btn btn-success">Lưu</button>
+        <button type="button" class="btn btn-secondary" @onclick="HideForm">Hủy</button>
+    </EditForm>
+}
+</div>
+@code {
+    private List<ThanhVien> thanhVienList;
+    private List<ThanhVien> displayList; // List used for display after filtering
+    private bool isLoading = true;
+    private bool showForm = false;
+    private bool disposedValue;
+    private ThanhVien editThanhVien = new ThanhVien();
+    private string searchTerm = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembers();
+    }
+
+    private async Task LoadMembers()
+    {
+        try
+        {
+            thanhVienList = await ThanhVienService.GetDanhSachThanhVienAsync();
+            displayList = new List<ThanhVien>(thanhVienList); // Initialize display list
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error fetching data: {ex.Message}\n{ex.StackTrace}");
+            thanhVienList = new List<ThanhVien>(); // Initialize empty list on error
+            displayList = new List<ThanhVien>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SearchMembers()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+            {
+                displayList = new List<ThanhVien>(thanhVienList); // Reset to full list
+            }
+            else
+            {
+                displayList = thanhVienList.Where(m =>
+                    m.MaThanhVien.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    m.TenThanhVien.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    m.ChucVu.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    m.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    m.SDT.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                ).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error searching members: {ex.Message}\n{ex.StackTrace}");
+        }
+    }
+
+    private void ShowForm()
+    {
+        editThanhVien = new ThanhVien(); // Reset the form
+        showForm = true;
+    }
+
+    private void EditMember(ThanhVien thanhVien)
+    {
+        editThanhVien = new ThanhVien
+            {
+                MaThanhVien = thanhVien.MaThanhVien,
+                TenThanhVien = thanhVien.TenThanhVien,
+                ChucVu = thanhVien.ChucVu,
+                Email = thanhVien.Email,
+                SDT = thanhVien.SDT
+            };
+        showForm = true;
+    }
+
+    private void HideForm()
+    {
+        showForm = false;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            if (thanhVienList.Any(m => m.MaThanhVien == editThanhVien.MaThanhVien))
+            {
+                await ThanhVienService.UpdateThanhVienAsync(editThanhVien);
+                var index = thanhVienList.FindIndex(m => m.MaThanhVien == editThanhVien.MaThanhVien);
+                thanhVienList[index] = editThanhVien;
+            }
+            else
+            {
+                await ThanhVienService.AddThanhVienAsync(editThanhVien);
+                thanhVienList.Add(editThanhVien);
+            }
+
+            displayList = new List<ThanhVien>(thanhVienList); // Update display list
+            editThanhVien = new ThanhVien();
+            showForm = false;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving member: {ex.Message}\n{ex.StackTrace}");
+        }
+    }
+
+    private async Task DeleteMember(string maThanhVien)
+    {
+        try
+        {
+            await ThanhVienService.DeleteThanhVienAsync(maThanhVien);
+            thanhVienList = thanhVienList.Where(m => m.MaThanhVien != maThanhVien).ToList();
+            displayList = new List<ThanhVien>(thanhVienList); // Update display list
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting member: {ex.Message}\n{ex.StackTrace}");
+        }
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposedValue)
+        {
+            if (disposing)
+            {
+                // Dispose managed state (managed objects)
+            }
+
+            // Free unmanaged resources (unmanaged objects) and override finalizer
+            // Set large fields to null
+            disposedValue = true;
+        }
+    }
+}
+<style>
+    .bg-blue {
+        background-color: #CCCCFF;
+        color: white;
+    }
+
+    .min-vh-100 {
+        min-height: 100vh;
+    }
+</style>

@@ -1,0 +1,56 @@
+﻿@* @page "/baocao"
+@inject DuAnService DuAnService
+@inject PhanCongCVService PhanCongCVService
+@inject ThanhVienService ThanhVienService
+
+<h3>Activity Report</h3>
+
+<div class="form-group">
+    <label for="datePicker">Select Month and Year:</label>
+    <input type="month" id="datePicker" @bind="selectedMonthYear" class="form-control" />
+</div>
+
+<button class="btn btn-primary" @onclick="LoadData">Load Data</button>
+
+@if (projects != null && projects.Any())
+{
+    <h4>Projects:</h4>
+    @foreach (var project in projects)
+    {
+        <div>
+            <h5>@project.TenDuAn</h5>
+            <ul>
+                @foreach (var assignment in project.PhanCongCV)
+                {
+                    <li>@(assignment.ThanhVien != null ? assignment.ThanhVien.TenThanhVien : "Unknown") - @assignment.CongViec</li>
+                }
+            </ul>
+        </div>
+    }
+}
+
+@code {
+    string selectedMonthYear;
+    List<DuAn> projects;
+
+    async Task LoadData()
+    {
+        var dateParts = selectedMonthYear.Split('-');
+        int year = Int32.Parse(dateParts[0]);
+        int month = Int32.Parse(dateParts[1]);
+
+        // Call backend service methods to fetch data
+        projects = await DuAnService.GetDanhSachDuAnTheoThangNamAsync(year, month);
+
+        foreach (var project in projects)
+        {
+            project.PhanCongCV = await PhanCongCVService.GetDanhSachPhanCongTheoDuAnAsync(project.MaDuAn);
+
+            foreach (var assignment in project.PhanCongCV)
+            {
+                assignment.ThanhVien = await ThanhVienService.GetThanhVienByIdAsync(assignment.MaThanhVien);
+            }
+        }
+    }
+}
+ *@

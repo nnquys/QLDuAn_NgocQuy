@@ -1,0 +1,74 @@
+﻿@page "/trangchu"
+@inject NavigationManager Navigation
+@inject ThanhVienService ThanhVienService
+@using Microsoft.AspNetCore.WebUtilities
+@using System.Threading.Tasks
+@using QLDuAn_NgocQuy.Models;
+
+<div class="d-flex flex-column min-vh-100 justify-content-center align-items-center bg-blue text-white p-5">
+    <div class="row justify-content-center">
+        <div class="col text-center">
+        <h1>HỆ THỐNG QUẢN LÍ DỰ ÁN</h1>
+
+        @if (!string.IsNullOrEmpty(memberName))
+        {
+            <p>Xin chào thành viên: @memberName</p>
+        }
+        else
+        {
+            <h4>Chúc mừng bạn đã đăng nhập thành công vào Hệ thống quản lí dự án!</h4>
+        }
+    </div></div>
+</div>
+
+@code {
+    private string memberId;
+    private string memberName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("memberId", out var memberIdValue))
+        {
+            memberId = memberIdValue;
+            Console.WriteLine($"Parsed memberId from query string: {memberId}"); // Debugging info
+
+            try
+            {
+                // Retrieve member name based on memberId using ThanhVienService
+                var members = await ThanhVienService.GetDanhSachThanhVienAsync();
+                Console.WriteLine($"Number of members retrieved: {members.Count}"); // Debugging info
+
+                var member = members.FirstOrDefault(u => u.MaThanhVien == memberId);
+                if (member != null)
+                {
+                    memberName = member.TenThanhVien;
+                    Console.WriteLine($"Found member: {memberName}"); // Debugging info
+                }
+                else
+                {
+                    Console.Error.WriteLine($"Không tìm thấy thành viên với mã: {memberId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Lỗi khi lấy thành viên: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("No memberId found in the query string."); // Debugging info
+        }
+    }
+   
+}
+<style>
+    .bg-blue {
+        background-color: #9999FF;
+        color: white;
+    }
+
+    .min-vh-100 {
+        min-height: 100vh;
+    }
+</style>

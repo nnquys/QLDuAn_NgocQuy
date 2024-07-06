@@ -1,0 +1,255 @@
+﻿@page "/duan"
+@using QLDuAn_NgocQuy.Data
+@using QLDuAn_NgocQuy.Models
+@inject DuAnService DuAnService
+@implements IDisposable
+<div class="  bg-blue text-black p-5">
+    <h3 class="col text-center">DANH SÁCH DỰ ÁN</h3>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (duAnList == null || duAnList.Count == 0)
+{
+    <p>Không có dữ liệu.</p>
+}
+else
+{
+    <div class="row">
+       
+        
+    </div>
+
+    <table class="table mt-3">
+        <thead>
+            <tr>
+                <th>Mã dự án</th>
+                <th>Tên dự án</th>
+                <th>Mô tả</th>
+                <th>Ngày bắt đầu</th>
+                <th>Ngày kết thúc</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var duAn in filteredDuAnList)
+            {
+                <tr>
+                    <td>@duAn.MaDuAn</td>
+                    <td>@duAn.TenDuAn</td>
+                    <td>@duAn.MoTa</td>
+                    <td>@duAn.NgayBatDau.ToShortDateString()</td>
+                    <td>@duAn.NgayKetThuc.ToShortDateString()</td>
+                    <td>@duAn.TrangThai</td>
+                    <td>
+                        <button class="btn btn-primary" @onclick="() => EditProject(duAn)">Edit</button>
+                        <button class="btn btn-danger ml-2" @onclick="() => DeleteProject(duAn.MaDuAn)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="col-md-6">
+        <button class="btn btn-primary" @onclick="ShowForm">Thêm Dự án</button>
+        <button class="btn btn-primary ml-2" @onclick="ToggleSearch">Tìm kiếm Dự án</button>
+    </div>
+    <div class="col-md-6">
+        @if (showSearch)
+        {
+            <div class="input-group mt-2">
+                <input type="text" class="form-control" placeholder="Nhập tên Dự án để tìm kiếm..." @bind-value="searchTerm" @bind-value:event="oninput" />
+                <div class="input-group-append">
+                    <button class="btn btn-outline-secondary" type="button" @onclick="SearchProjects">Tìm kiếm</button>
+                    <button class="btn btn-outline-secondary" type="button" @onclick="CancelSearch">Hủy</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (showForm)
+{
+    <EditForm Model="@editDuAn" OnValidSubmit="@HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="MaDuAn">Mã Dự án</label>
+            <InputText id="MaDuAn" class="form-control" @bind-Value="editDuAn.MaDuAn" />
+        </div>
+        <div class="form-group">
+            <label for="TenDuAn">Tên Dự án</label>
+            <InputText id="TenDuAn" class="form-control" @bind-Value="editDuAn.TenDuAn" />
+        </div>
+        <div class="form-group">
+            <label for="MoTa">Mô tả</label>
+            <InputText id="MoTa" class="form-control" @bind-Value="editDuAn.MoTa" />
+        </div>
+        <div class="form-group">
+            <label for="NgayBatDau">Ngày Bắt đầu</label>
+            <InputDate id="NgayBatDau" class="form-control" @bind-Value="editDuAn.NgayBatDau" />
+        </div>
+        <div class="form-group">
+            <label for="NgayKetThuc">Ngày Kết thúc</label>
+            <InputDate id="NgayKetThuc" class="form-control" @bind-Value="editDuAn.NgayKetThuc" />
+        </div>
+        <div class="form-group">
+            <label for="TrangThai">Trạng Thái</label>
+            <InputText id="TrangThai" class="form-control" @bind-Value="editDuAn.TrangThai" />
+        </div>
+
+        <button type="submit" class="btn btn-success">Lưu</button>
+        <button type="button" class="btn btn-secondary" @onclick="HideForm">Hủy</button>
+    </EditForm>
+}
+</div>
+@code {
+    private List<DuAn> duAnList;
+    private List<DuAn> filteredDuAnList;
+    private bool isLoading = true;
+    private bool showForm = false;
+    private bool showSearch = false;
+    private DuAn editDuAn = new DuAn();
+    private string searchTerm = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        try
+        {
+            duAnList = await DuAnService.GetDanhSachDuAnAsync();
+            filteredDuAnList = new List<DuAn>(duAnList); // Initialize filtered list with all projects
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error fetching data: {ex.Message}");
+            duAnList = new List<DuAn>(); // Initialize empty list on error
+            filteredDuAnList = new List<DuAn>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowForm()
+    {
+        editDuAn = new DuAn(); // Reset the form
+        showForm = true;
+    }
+
+    private async Task DeleteProject(string maDuAn)
+    {
+        try
+        {
+            await DuAnService.DeleteDuAnAsync(maDuAn);
+            duAnList.RemoveAll(p => p.MaDuAn == maDuAn); // Remove the deleted project from the list
+            FilterProjects(); // Update filtered list after deletion
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting project: {ex.Message}");
+            // Handle error as needed
+        }
+    }
+
+    private void EditProject(DuAn duAn)
+    {
+        editDuAn = new DuAn
+            {
+                MaDuAn = duAn.MaDuAn,
+                TenDuAn = duAn.TenDuAn,
+                MoTa = duAn.MoTa,
+                NgayBatDau = duAn.NgayBatDau,
+                NgayKetThuc = duAn.NgayKetThuc,
+                TrangThai = duAn.TrangThai
+            };
+        showForm = true;
+    }
+
+    private void HideForm()
+    {
+        showForm = false;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            if (duAnList.Any(p => p.MaDuAn == editDuAn.MaDuAn))
+            {
+                await DuAnService.UpdateDuAnAsync(editDuAn);
+                var index = duAnList.FindIndex(p => p.MaDuAn == editDuAn.MaDuAn);
+                duAnList[index] = editDuAn;
+            }
+            else
+            {
+                await DuAnService.AddDuAnAsync(editDuAn);
+                duAnList.Add(editDuAn);
+            }
+
+            editDuAn = new DuAn();
+            showForm = false;
+            FilterProjects(); // Update filtered list after save
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving project: {ex.Message}");
+        }
+    }
+
+    private void ToggleSearch()
+    {
+        showSearch = !showSearch;
+        if (!showSearch)
+        {
+            searchTerm = string.Empty; // Clear search term when hiding search
+            FilterProjects();
+        }
+    }
+
+    private void SearchProjects()
+    {
+        FilterProjects();
+    }
+
+    private void CancelSearch()
+    {
+        showSearch = false;
+        searchTerm = string.Empty;
+        FilterProjects();
+    }
+
+    private void FilterProjects()
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            filteredDuAnList = new List<DuAn>(duAnList);
+        }
+        else
+        {
+            filteredDuAnList = duAnList.Where(p => p.TenDuAn.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+    }
+
+    public void Dispose()
+    {
+        // Implement IDisposable if needed
+    }
+}
+<style>
+    .bg-blue {
+        background-color: #CCCCFF;
+        color: white;
+    }
+
+    .min-vh-100 {
+        min-height: 100vh;
+    }
+</style>
