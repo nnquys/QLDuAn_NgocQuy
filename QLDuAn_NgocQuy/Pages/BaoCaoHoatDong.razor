@@ -1,56 +1,66 @@
-﻿@* @page "/baocao"
-@inject DuAnService DuAnService
-@inject PhanCongCVService PhanCongCVService
-@inject ThanhVienService ThanhVienService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
-<h3>Activity Report</h3>
-
-<div class="form-group">
-    <label for="datePicker">Select Month and Year:</label>
-    <input type="month" id="datePicker" @bind="selectedMonthYear" class="form-control" />
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">QLDuAn_NgocQuy</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
 </div>
 
-<button class="btn btn-primary" @onclick="LoadData">Load Data</button>
-
-@if (projects != null && projects.Any())
-{
-    <h4>Projects:</h4>
-    @foreach (var project in projects)
-    {
-        <div>
-            <h5>@project.TenDuAn</h5>
-            <ul>
-                @foreach (var assignment in project.PhanCongCV)
-                {
-                    <li>@(assignment.ThanhVien != null ? assignment.ThanhVien.TenThanhVien : "Unknown") - @assignment.CongViec</li>
-                }
-            </ul>
+<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+    
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="duan">
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Dự án
+            </NavLink>
         </div>
-    }
-}
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="thanhvien">
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Thành viên
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="phancong">
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Phân công công việc
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="baocao">
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Tiến độ công việc
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" @onclick="ConfirmLogout"  >
+                <span class="oi oi-list-rich" aria-hidden="true"></span> Đăng xuất
+            </NavLink>
+        </div>
+
+    </nav>
+</div>
 
 @code {
-    string selectedMonthYear;
-    List<DuAn> projects;
+    private bool collapseNavMenu = true;
 
-    async Task LoadData()
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
     {
-        var dateParts = selectedMonthYear.Split('-');
-        int year = Int32.Parse(dateParts[0]);
-        int month = Int32.Parse(dateParts[1]);
-
-        // Call backend service methods to fetch data
-        projects = await DuAnService.GetDanhSachDuAnTheoThangNamAsync(year, month);
-
-        foreach (var project in projects)
+        collapseNavMenu = !collapseNavMenu;
+    }
+    private bool IsLoginPage()
+    {
+        return Navigation.Uri.EndsWith("/");
+    }
+    private async Task ConfirmLogout(MouseEventArgs e)
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Bạn có chắc chắn muốn đăng xuất không?");
+        if (confirmed)
         {
-            project.PhanCongCV = await PhanCongCVService.GetDanhSachPhanCongTheoDuAnAsync(project.MaDuAn);
-
-            foreach (var assignment in project.PhanCongCV)
-            {
-                assignment.ThanhVien = await ThanhVienService.GetThanhVienByIdAsync(assignment.MaThanhVien);
-            }
+            Navigation.NavigateTo("/");
         }
     }
 }
- *@
