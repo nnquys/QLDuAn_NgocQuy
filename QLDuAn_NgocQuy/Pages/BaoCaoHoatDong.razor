@@ -1,66 +1,246 @@
-@inject NavigationManager Navigation
-@inject IJSRuntime JSRuntime
+@page "/baocao"
+@inject DuAnService DuAnService
+@inject PhanCongCVService PhanCongCVService
+@inject ThanhVienService ThanhVienService
+<div class="  bg-blue text-black p-5">
+    <h3 class="col text-center">HOẠT ĐỘNG DỰ ÁN VÀ THÀNH VIÊN</h3>
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">QLDuAn_NgocQuy</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </div>
+<div class="form-inline">
+    <label for="MaDuAn">Mã Dự Án:</label>
+    <select id="MaDuAn" class="form-control mr-2" @bind="selectedPhanCong.MaDuAn" @bind:event="onchange">
+        <option value="">--Chọn Dự Án--</option>
+        @if (danhSachDuAn != null)
+        {
+            @foreach (var duAn in danhSachDuAn)
+            {
+                <option value="@duAn.MaDuAn">@duAn.MaDuAn - @duAn.TenDuAn</option>
+            }
+        }
+    </select>
+
+    <label for="MaThanhVien">Mã Thành Viên:</label>
+    <select id="MaThanhVien" class="form-control mr-2" @bind="selectedPhanCong.MaThanhVien" @bind:event="onchange">
+        <option value="">--Chọn Thành Viên--</option>
+        @if (danhSachThanhVien != null)
+        {
+            @foreach (var thanhVien in danhSachThanhVien)
+            {
+                <option value="@thanhVien.MaThanhVien">@thanhVien.MaThanhVien - @thanhVien.TenThanhVien</option>
+            }
+        }
+    </select>
+
+    <button class="btn btn-primary mr-2" @onclick="FilterData">Lọc Dữ Liệu</button>
+
+    @if (!string.IsNullOrEmpty(selectedPhanCong.MaDuAn))
+    {
+        <button class="btn btn-success" @onclick="@(async () => await ViewProgress(selectedPhanCong.MaDuAn))">Xem Tiến Độ</button>
+    }
+
+    @if (!string.IsNullOrEmpty(selectedPhanCong.MaThanhVien))
+    {
+        <button class="btn btn-info" @onclick="@(async () => await ViewMemberInfo(selectedPhanCong.MaThanhVien))">Thông Tin Thành Viên</button>
+    }
 </div>
 
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-    
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="duan">
-                <span class="oi oi-list-rich" aria-hidden="true"></span> Dự án
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="thanhvien">
-                <span class="oi oi-list-rich" aria-hidden="true"></span> Thành viên
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="phancong">
-                <span class="oi oi-list-rich" aria-hidden="true"></span> Phân công công việc
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="baocao">
-                <span class="oi oi-list-rich" aria-hidden="true"></span> Tiến độ công việc
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" @onclick="ConfirmLogout"  >
-                <span class="oi oi-list-rich" aria-hidden="true"></span> Đăng xuất
-            </NavLink>
-        </div>
+@if (isLoading)
+{
+    <p>Đang tải dữ liệu...</p>
+}
+else
+{
+    @if (showProgress)
+    {
+        <div class="mt-4">
+            <h4>Thông tin tiến độ dự án: @selectedDuAn.TenDuAn</h4>
 
-    </nav>
+            <p>Tổng số công việc: @CountCongViec(selectedDuAn.MaDuAn)</p>
+            <p>Công việc đã hoàn thành: @CountCongViecHoanThanh(selectedDuAn.MaDuAn)</p>
+            <p>Tiến độ: @CalculateProgress(selectedDuAn.MaDuAn)%</p>
+        </div>
+    }
+
+    @if (showMemberInfo)
+    {
+        <div class="mt-4">
+            <h4>Thông tin thành viên: @selectedThanhVien.TenThanhVien</h4>
+
+            <p>Số lượng dự án tham gia: @CountDuAnThamGia(selectedThanhVien.MaThanhVien)</p>
+            <p>Phần trăm công việc hoàn thành: @CalculatePercentComplete(selectedThanhVien.MaThanhVien)%</p>
+        </div>
+    }
+
+    <table class="table table-striped mt-4">
+        <thead>
+            <tr>
+                <th>Mã Phân Công</th>
+                <th>Mã Dự Án</th>
+                <th>Mã Thành Viên</th>
+                <th>Công Việc</th>
+                <th>Ngày Giao</th>
+                <th>Hạn Cuối</th>
+                <th>Trạng Thái</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var phanCong in displayList)
+            {
+                <tr>
+                    <td>@phanCong.MaPhanCong</td>
+                    <td>@phanCong.MaDuAn</td>
+                    <td>@phanCong.MaThanhVien</td>
+                    <td>@phanCong.CongViec</td>
+                    <td>@phanCong.NgayGiao.ToString("dd/MM/yyyy")</td>
+                    <td>@phanCong.HanCuoi.ToString("dd/MM/yyyy")</td>
+                    <td>@phanCong.TrangThai</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
 </div>
 
 @code {
-    private bool collapseNavMenu = true;
+    private List<PhanCongCV> phanCongList = new List<PhanCongCV>();
+    private List<PhanCongCV> displayList = new List<PhanCongCV>(); // List used for display after filtering
+    private List<ThanhVien> danhSachThanhVien = new List<ThanhVien>();
+    private List<DuAn> danhSachDuAn = new List<DuAn>();
+    private bool isLoading = true;
+    private PhanCongCV selectedPhanCong = new PhanCongCV();
+    private DuAn selectedDuAn = new DuAn(); // Store selected project for progress view
+    private ThanhVien selectedThanhVien = new ThanhVien(); // Store selected member for member info view
+    private bool showProgress = false;
+    private bool showMemberInfo = false;
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
 
-    private void ToggleNavMenu()
+    private async Task LoadData()
     {
-        collapseNavMenu = !collapseNavMenu;
-    }
-    private bool IsLoginPage()
-    {
-        return Navigation.Uri.EndsWith("/");
-    }
-    private async Task ConfirmLogout(MouseEventArgs e)
-    {
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Bạn có chắc chắn muốn đăng xuất không?");
-        if (confirmed)
+        try
         {
-            Navigation.NavigateTo("/");
+            phanCongList = await PhanCongCVService.GetAllAsync();
+            displayList = new List<PhanCongCV>(phanCongList); // Initialize display list
+            danhSachThanhVien = await ThanhVienService.GetDanhSachThanhVienAsync();
+            danhSachDuAn = await DuAnService.GetDanhSachDuAnAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error fetching data: {ex.Message}");
+            // Initialize empty lists on error
+            phanCongList = new List<PhanCongCV>();
+            danhSachThanhVien = new List<ThanhVien>();
+            danhSachDuAn = new List<DuAn>();
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
+
+    private async Task FilterData()
+    {
+        var selectedMaDuAn = selectedPhanCong.MaDuAn;
+        var selectedMaThanhVien = selectedPhanCong.MaThanhVien;
+
+        displayList = phanCongList
+            .Where(p => (string.IsNullOrEmpty(selectedMaDuAn) || p.MaDuAn == selectedMaDuAn) &&
+                        (string.IsNullOrEmpty(selectedMaThanhVien) || p.MaThanhVien == selectedMaThanhVien))
+            .ToList();
+
+        // Clear progress view when filtering
+        showProgress = false;
+        // Clear member info view when filtering
+        showMemberInfo = false;
+    }
+
+    private async Task ViewProgress(string maDuAn)
+    {
+        // Find the selected project for progress view
+        selectedDuAn = danhSachDuAn.FirstOrDefault(d => d.MaDuAn == maDuAn);
+        if (selectedDuAn != null)
+        {
+            showProgress = true; // Show progress section
+                                 // Hide member info view
+            showMemberInfo = false;
+        }
+    }
+
+    private async Task ViewMemberInfo(string maThanhVien)
+    {
+        // Find the selected member for member info view
+        selectedThanhVien = danhSachThanhVien.FirstOrDefault(tv => tv.MaThanhVien == maThanhVien);
+        if (selectedThanhVien != null)
+        {
+            showMemberInfo = true; // Show member info section
+                                   // Hide progress view
+            showProgress = false;
+        }
+    }
+
+    private int CountThanhVien(string maThanhVien)
+    {
+        // Count the number of members associated with the project
+        return danhSachThanhVien.Count(tv => tv.MaThanhVien == maThanhVien);
+    }
+
+    private int CountCongViec(string maDuAn)
+    {
+        // Count the total number of tasks associated with the project
+        return phanCongList.Count(pc => pc.MaDuAn == maDuAn);
+    }
+
+    private int CountCongViecHoanThanh(string maDuAn)
+    {
+        // Count the number of completed tasks associated with the project
+        return phanCongList.Count(pc => pc.MaDuAn == maDuAn && pc.TrangThai == "Hoàn thành");
+    }
+
+    private int CalculateProgress(string maDuAn)
+    {
+        // Calculate the project progress percentage based on completed tasks
+        var totalTasks = CountCongViec(maDuAn);
+        if (totalTasks == 0)
+        {
+            return 0;
+        }
+
+        var completedTasks = CountCongViecHoanThanh(maDuAn);
+        return (int)((double)completedTasks / totalTasks * 100);
+    }
+
+    private int CountDuAnThamGia(string maThanhVien)
+    {
+        // Count the number of projects a member is involved in
+        return phanCongList
+            .Where(pc => pc.MaThanhVien == maThanhVien)
+            .Select(pc => pc.MaDuAn)
+            .Distinct()
+            .Count();
+    }
+
+    private int CalculatePercentComplete(string maThanhVien)
+    {
+        // Calculate the percentage of completed tasks by a member
+        var totalTasks = phanCongList.Count(pc => pc.MaThanhVien == maThanhVien);
+        if (totalTasks == 0)
+        {
+            return 0;
+        }
+
+        var completedTasks = phanCongList.Count(pc => pc.MaThanhVien == maThanhVien && pc.TrangThai == "Hoàn thành");
+        return (int)((double)completedTasks / totalTasks * 100);
+    }
 }
+<style>
+    .bg-blue {
+        background-color: #CCCCFF;
+        color: white;
+    }
+
+    .min-vh-100 {
+        min-height: 100vh;
+    }
+</style>
